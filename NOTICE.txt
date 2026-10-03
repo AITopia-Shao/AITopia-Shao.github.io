@@ -1,0 +1,3 @@
+Aitopia website publishing files. All rights reserved.
+This repository contains generated static output only. No open-source license is granted for the site implementation or articles.
+Third-party libraries retain their own licenses; see assets/vendor/LICENSES.txt.
