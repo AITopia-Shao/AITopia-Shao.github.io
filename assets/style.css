@@ -763,7 +763,7 @@ summary {
 .prose p {
   margin: 14px 0;
 }
-.prose a {
+.prose a:not(.button) {
   color: var(--accent);
   text-decoration: underline;
   text-decoration-color: var(--line);
