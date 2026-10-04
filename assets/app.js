@@ -431,6 +431,27 @@ window.AitopiaInit = () => {
     $("#copy-latex").addEventListener("click", () => copy(latex.value));
     render();
   }
+  function renderComment(target, source) {
+    target.classList.add("prose");
+    if (!window.markdownit) {
+      target.textContent = source;
+      return;
+    }
+    const markdown = window.markdownit({ html: false, linkify: true });
+    if (window.texmath && window.katex)
+      markdown.use(window.texmath, {
+        engine: window.katex,
+        delimiters: ["dollars", "brackets"],
+        katexOptions: {
+          trust: false,
+          throwOnError: false,
+          maxExpand: 1000,
+          maxSize: 20,
+        },
+      });
+    // Parse math before Markdown escapes or emphasis can alter its source.
+    target.innerHTML = markdown.render(source);
+  }
   const draft = $("#comment-draft");
   if (draft) {
     const comments = $("#comments"),
@@ -441,22 +462,8 @@ window.AitopiaInit = () => {
       $("#comment-write").setAttribute("aria-pressed", String(!show));
       $("#comment-preview-toggle").setAttribute("aria-pressed", String(show));
       if (show) {
-        preview.innerHTML = window.markdownit
-          ? window
-              .markdownit({ html: false, linkify: true })
-              .render(draft.value)
-          : "";
+        renderComment(preview, draft.value);
         if (!draft.value.trim()) preview.textContent = "写下内容后即可预览。";
-        window.renderMathInElement?.(preview, {
-          delimiters: [
-            { left: "$$", right: "$$", display: true },
-            { left: "$", right: "$", display: false },
-          ],
-          trust: false,
-          throwOnError: false,
-          maxExpand: 1000,
-          maxSize: 20,
-        });
       }
     }
     $("#comment-preview-toggle").addEventListener("click", () =>
@@ -535,25 +542,7 @@ window.AitopiaInit = () => {
             "zh-CN",
           );
           body.className = "comment-body";
-          if (window.markdownit) {
-            body.innerHTML = window
-              .markdownit({ html: false, linkify: true })
-              .render(item.body || "");
-            body.classList.add("prose");
-            if (window.renderMathInElement)
-              window.renderMathInElement(body, {
-                delimiters: [
-                  { left: "$$", right: "$$", display: true },
-                  { left: "\\[", right: "\\]", display: true },
-                  { left: "$", right: "$", display: false },
-                  { left: "\\(", right: "\\)", display: false },
-                ],
-                trust: false,
-                throwOnError: false,
-                maxExpand: 1000,
-                maxSize: 20,
-              });
-          } else body.textContent = item.body;
+          renderComment(body, item.body || "");
           header.append(link, time);
           article.append(header, body);
           list.append(article);
