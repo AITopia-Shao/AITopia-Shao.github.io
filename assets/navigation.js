@@ -96,6 +96,31 @@
   let pending,
     generation = 0,
     scrollTimer;
+  let renderedPage = location.pathname + location.search;
+  function cancelPendingNavigation() {
+    if (!pending) return;
+    generation++;
+    pending.abort();
+    pending = null;
+    document.querySelector("#main").removeAttribute("aria-busy");
+  }
+  function restorePosition(url, position = null) {
+    if (position) {
+      window.scrollTo({
+        left: position[0],
+        top: position[1],
+        behavior: "instant",
+      });
+      return;
+    }
+    let id = url.hash.slice(1);
+    try {
+      id = decodeURIComponent(id);
+    } catch {}
+    const anchor = id && document.getElementById(id);
+    if (anchor) anchor.scrollIntoView({ behavior: "instant" });
+    else window.scrollTo({ top: 0, behavior: "instant" });
+  }
   window.addEventListener(
     "scroll",
     () => {
@@ -205,6 +230,7 @@
       }
       window.AitopiaCleanup?.();
       document.querySelector("#main").replaceWith(incoming);
+      renderedPage = url.pathname + url.search;
       document.title = doc.title;
       document.querySelectorAll(metadata).forEach((el) => el.remove());
       doc
@@ -215,19 +241,7 @@
       currentLinks();
       window.AitopiaInit?.();
       incoming.focus({ preventScroll: true });
-      if (scroll)
-        window.scrollTo({
-          left: scroll[0],
-          top: scroll[1],
-          behavior: "instant",
-        });
-      else if (url.hash) {
-        const anchor = document.getElementById(
-          decodeURIComponent(url.hash.slice(1)),
-        );
-        if (anchor) anchor.scrollIntoView({ behavior: "instant" });
-        else window.scrollTo({ top: 0, behavior: "instant" });
-      } else window.scrollTo({ top: 0, behavior: "instant" });
+      restorePosition(url, scroll);
       document.dispatchEvent(
         new CustomEvent("aitopia:navigated", { detail: { url: url.href } }),
       );
@@ -275,16 +289,18 @@
       url.pathname === location.pathname &&
       url.search === location.search &&
       url.hash
-    )
+    ) {
+      cancelPendingNavigation();
+      closeMenu();
+      history.replaceState(
+        { ...history.state, scroll: [scrollX, scrollY] },
+        "",
+      );
       return;
+    }
     e.preventDefault();
     if (url.href === location.href) {
-      if (pending) {
-        generation++;
-        pending.abort();
-        pending = null;
-        document.querySelector("#main").removeAttribute("aria-busy");
-      }
+      cancelPendingNavigation();
       closeMenu();
       return;
     }
@@ -301,7 +317,15 @@
     url.searchParams.set("q", new FormData(e.target).get("q") || "");
     navigate(url);
   });
-  window.addEventListener("popstate", (e) =>
-    navigate(location.href, { pop: true, scroll: e.state?.scroll || [0, 0] }),
-  );
+  window.addEventListener("popstate", (e) => {
+    // Native fragment links also emit popstate. Keep the existing DOM and editor
+    // state for these entries instead of fetching the page and resetting scroll.
+    if (location.pathname + location.search === renderedPage) {
+      cancelPendingNavigation();
+      closeMenu();
+      restorePosition(new URL(location.href), e.state?.scroll ?? null);
+      return;
+    }
+    navigate(location.href, { pop: true, scroll: e.state?.scroll ?? null });
+  });
 })();
